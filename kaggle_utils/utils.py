@@ -46,13 +46,13 @@ class EDA:
     def get_cat_col_names(self):
         if not hasattr(self, "cat_cols"):
             self.cat_cols = self.df.select_dtypes(include="object")
-        return self.cat_cols.columns
+        return list(self.cat_cols.columns)
         
     @property
     def get_num_col_names(self):
         if not hasattr(self, "num_cols"):
             self.num_cols = self.df.select_dtypes(include="number")
-        return self.num_cols.columns
+        return list(self.num_cols.columns)
     
 
 def prnt(obj):
@@ -70,43 +70,60 @@ def get_datetime_str():
 
 
 def prepend_alphabets_based_on_mean(df):
-    cat_col, target_col = df.columns
+    # df = df.copy()
+    *cat_cols, target_col = df.columns
+    # cat_col, target_col = df.columns
     # Step 1: Apply SimpleImputer to handle missing values
     # Impute the category column with most frequent value
-    cat_imputer = SimpleImputer(strategy='most_frequent')
-    df[[cat_col]] = cat_imputer.fit_transform(df[[cat_col]])
+    # cat_imputer = SimpleImputer(strategy='most_frequent')
+    # df[[cat_col]] = cat_imputer.fit_transform(df[[cat_col]])
+    # df[cat_cols] = cat_imputer.fit_transform(df[cat_cols])
     # Impute the target column with the median
-    target_imputer = SimpleImputer(strategy='median')
-    df[[target_col]] = target_imputer.fit_transform(df[[target_col]])
+    # target_imputer = SimpleImputer(strategy='median')
+    # df[[target_col]] = target_imputer.fit_transform(df[[target_col]])
+    df[target_col] = df[target_col].fillna(df[target_col].median())
 
-    # Step 2: Calculate the mean for each category
-    category_means = df.groupby(cat_col)[target_col].mean()
+    alphabet_mappings = []
 
-    # Step 3: Sort the categories based on the mean in ascending order
-    sorted_categories = category_means.sort_values().index
+    for cat_col in cat_cols:
+        # Step 2: Calculate the mean for each category
+        category_means = df.groupby(cat_col)[target_col].mean()
 
-    # Step 4: Assign alphabets (A, B, C, ...) based on the sorted order
-    alphabet_mapping = {cat: chr(65 + i) for i, cat in enumerate(sorted_categories)}
+        # Step 3: Sort the categories based on the mean in ascending order
+        sorted_categories = category_means.sort_values().index
 
-    # Step 5: Prepend the alphabet to each category name in the original DataFrame
-    df[cat_col] = df[cat_col].apply(lambda x: f"{alphabet_mapping[x]}_{x}")
+        # Step 4: Assign alphabets (A, B, C, ...) based on the sorted order
+        alphabet_mapping = {cat: "Z"*(i//26)+chr(65 + i%26) for i, cat in enumerate(sorted_categories)}
+        alphabet_mappings.append({v:k for k, v in alphabet_mapping.items()})
 
-    return df[[cat_col]]
+        # Step 5: Prepend the alphabet to each category name in the original DataFrame
+        # df[cat_col] = df[cat_col].apply(lambda x: f"{alphabet_mapping[x]}_{x}")
+        df[cat_col] = df[cat_col].apply(lambda x: f"{alphabet_mapping[x]}")
+
+    return df[cat_cols], alphabet_mappings
 
 
 class CustomOrdinalEncoder(BaseEstimator, TransformerMixin):
     def __init__(self, unknown_value=-1):
+        self.unknown_value = unknown_value
         self.ord_enc = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=unknown_value)
+        self.imputer = SimpleImputer(strategy="most_frequent")
 
     def fit(self, X, y=None):
-        X_mod = prepend_alphabets_based_on_mean(X.copy())
+        X_tr = self.imputer.fit_transform(X)
+        X_tr = pd.DataFrame(X_tr, columns=self.imputer.get_feature_names_out(), index=X.index)
+        X_mod, alphabet_mappings = prepend_alphabets_based_on_mean(X_tr)
         self.ord_enc.fit(X_mod)
-        for i in range(len(self.ord_enc.categories_[0])):
-            self.ord_enc.categories_[0][i] = "_".join(self.ord_enc.categories_[0][i].split("_")[1:])
+        for alphabet_mapping, category in zip(alphabet_mappings, self.ord_enc.categories_):
+            for i in range(len(category)):
+                # self.ord_enc.categories_[0][i] = "_".join(self.ord_enc.categories_[0][i].split("_")[1:])
+                category[i] = alphabet_mapping[category[i]]
         return self
 
     def transform(self, X, y=None):
-        X_transformed = self.ord_enc.transform(X.iloc[:, [0]])
+        X_tr = self.imputer.transform(X)
+        X_tr = pd.DataFrame(X_tr, columns=self.imputer.get_feature_names_out(), index=X.index)
+        X_transformed = self.ord_enc.transform(X_tr.iloc[:, :-1])
         return X_transformed
 
     def get_feature_names_out(self, input_features=None):
