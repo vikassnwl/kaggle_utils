@@ -42,19 +42,21 @@ class EDA:
             self.cat_cols = self.df.select_dtypes(include="object")
         return self.cat_cols.nunique()
     
-    @property
-    def get_cat_col_names(self):
+    def get_cat_col_names(self, ignore_cols_list=[]):
         if not hasattr(self, "cat_cols"):
             self.cat_cols = self.df.select_dtypes(include="object")
+        if ignore_cols_list:
+            return [col_name for col_name in self.cat_cols.columns if col_name not in ignore_cols_list]
         return list(self.cat_cols.columns)
         
-    @property
-    def get_num_col_names(self):
+    def get_num_col_names(self, ignore_cols_list=[]):
         if not hasattr(self, "num_cols"):
             self.num_cols = self.df.select_dtypes(include="number")
+        if ignore_cols_list:
+            return [col_name for col_name in self.num_cols.columns if col_name not in ignore_cols_list]
         return list(self.num_cols.columns)
     
-
+    
 def prnt(obj):
     for i, item in enumerate(obj):
         print(f"{i+1}. {item}")
