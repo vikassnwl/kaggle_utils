@@ -184,8 +184,8 @@ def find_optimal_gaussian_transformer(data, method="anderson"):
 
         print(f"Method: {method}")
         print(f"Candidates: {[f['func_name'] for f in funcs]}")
-        print(f"Stats: {stats}")
-        print(f"Selected: {opt_func_name} (min stat)")
+        print(f"Statistics: {stats}")
+        print(f"Selected: {opt_func_name} (minimum statistic)")
     
     elif method == "shapiro":
         max_p = -math.inf
@@ -203,7 +203,8 @@ def find_optimal_gaussian_transformer(data, method="anderson"):
         print(f"Method: {method}")
         print(f"Candidates: {[f['func_name'] for f in funcs]}")
         print(f"P Values: {p_values}")
-        print(f"Selected: {func_name} (max p_value)")
+        print(f"Selected: {func_name} (maximum p value)")
     
     else:
-        raise Exception(f"{method} is not a valid method. Try one of the following:\n{'\n'.join(map(lambda x: '- '+x, valid_methods_list))}")
+        valid_methods_str = '\n'.join(map(lambda x: '- '+x, valid_methods_list))
+        raise Exception(f"{method} is not a valid method. Try one of the following:\n{valid_methods_str}")
