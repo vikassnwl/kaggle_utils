@@ -1,5 +1,9 @@
 import pandas as pd
+import numpy as np
+import math
+from scipy.stats import shapiro, anderson
 from datetime import datetime
+from types import SimpleNamespace
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.impute import SimpleImputer
@@ -130,3 +134,76 @@ class CustomOrdinalEncoder(BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         return self.ord_enc.get_feature_names_out()
+
+
+class CustomModelWithPostProcessing(BaseEstimator, TransformerMixin):
+    """
+    A custom scikit-learn estimator that includes a post-processing step.
+    
+    Parameters:
+    -----------
+    model: A scikit-learn compatible model that implements fit and predict methods.
+    post_processor: A callable that takes the model's predictions as input and returns the post-processed predictions.
+    """
+    def __init__(self, model, post_processor):
+        self.model = model
+        self.post_processor = post_processor
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+        return self
+
+    def predict(self, X):
+        raw_predictions = self.model.predict(X)
+        processed_predictions = self.post_processor(raw_predictions)
+        return processed_predictions
+
+    def score(self, X, y):
+        return self.model.score(X, y)
+
+
+def find_optimal_gaussian_transformer(data, method="anderson"):
+    valid_methods_list = ["shapiro", "anderson"]
+
+    funcs = [{"func": np.log, "func_name": "log"},
+            {"func": np.sqrt, "func_name": "sqrt"},
+            {"func": np.cbrt, "func_name": "cbrt"}]
+    
+    if method == "anderson":
+        min_stat = math.inf
+        opt_func = None
+        opt_func_name = ""
+        stats = []
+        for func in funcs:
+            stat = anderson(func["func"](data)).statistic
+            stats.append(stat)
+            if stat < min_stat:
+                min_stat = stat
+                opt_func = func["func"]
+                opt_func_name = func["func_name"]
+
+        print(f"Method: {method}")
+        print(f"Candidates: {[f['func_name'] for f in funcs]}")
+        print(f"Stats: {stats}")
+        print(f"Selected: {opt_func_name} (min stat)")
+    
+    elif method == "shapiro":
+        max_p = -math.inf
+        max_func = None
+        func_name = ""
+        p_values = []
+        for func in funcs:
+            stat, p = shapiro(func["func"](data))
+            p_values.append(p)
+            if p > max_p:
+                max_p = p
+                max_func = func["func"]
+                func_name = func["func_name"]
+
+        print(f"Method: {method}")
+        print(f"Candidates: {[f['func_name'] for f in funcs]}")
+        print(f"P Values: {p_values}")
+        print(f"Selected: {func_name} (max p_value)")
+    
+    else:
+        raise Exception(f"{method} is not a valid method. Try one of the following:\n{'\n'.join(map(lambda x: '- '+x, valid_methods_list))}")
