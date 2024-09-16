@@ -60,6 +60,12 @@ class EDA:
             return [col_name for col_name in self.num_cols.columns if col_name not in ignore_cols_list]
         return list(self.num_cols.columns)
     
+    def value_counts(self, col_name, with_nan=True):
+        series = self.df[col_name]
+        if with_nan:
+            return pd.concat([series.value_counts(), pd.Series([series.isnull().sum()], index=[np.nan])])
+        return series.value_counts()
+    
     
 def prnt(obj):
     for i, item in enumerate(obj):
