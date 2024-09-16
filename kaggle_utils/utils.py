@@ -124,6 +124,7 @@ class CustomOrdinalEncoder(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         X_tr = self.imputer.fit_transform(X)
         X_tr = pd.DataFrame(X_tr, columns=self.imputer.get_feature_names_out(), index=X.index)
+        X_tr = X_tr.astype(X.dtypes)
         X_mod, alphabet_mappings = prepend_alphabets_based_on_mean(X_tr)
         self.ord_enc.fit(X_mod)
         for alphabet_mapping, category in zip(alphabet_mappings, self.ord_enc.categories_):
